@@ -16,6 +16,9 @@ import kotlinx.serialization.json.jsonObject
 import okhttp3.Headers
 import org.json.JSONException
 
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+
 fun createJson() = Json {
     isLenient = true
     ignoreUnknownKeys = true
@@ -41,7 +44,6 @@ class MainActivity : AppCompatActivity() {
         setContentView(view)
 
         articlesRecyclerView = findViewById(R.id.articles)
-        // Set up ArticleAdapter with articles
         articleAdapter = ArticleAdapter(this, articles)
         articlesRecyclerView.adapter = articleAdapter
         articlesRecyclerView.layoutManager = LinearLayoutManager(this).also {
@@ -63,19 +65,43 @@ class MainActivity : AppCompatActivity() {
             override fun onSuccess(statusCode: Int, headers: Headers, json: JSON) {
                 Log.i(TAG, "Successfully fetched articles: $json")
                 try {
-                    // Create the parsedJSON
                     val parsedJSON = createJson().parseToJsonElement(json.jsonObject.toString()).jsonObject
-                    val docs = parsedJSON["response"]?.jsonObject?.get("docs")?.jsonArray
-                    if (docs != null) {
+                    val response = parsedJSON["response"]?.jsonObject
+                    val docs = response?.get("docs")
+
+                    if (docs is kotlinx.serialization.json.JsonArray) {
                         for (doc in docs) {
                             val articleJson = doc.jsonObject
-                            val multimedia = articleJson["multimedia"]?.jsonArray
-                            val smallImageUrl = multimedia?.find {
-                                it.jsonObject["subtype"]?.toString()?.removeSurrounding("\"") == "xlarge"
-                            }?.jsonObject?.get("url")?.toString()?.removeSurrounding("\"")?.let { "https://www.nytimes.com/$it" }
-                            val largeImageUrl = multimedia?.find {
-                                it.jsonObject["subtype"]?.toString()?.removeSurrounding("\"") == "xlarge"
-                            }?.jsonObject?.get("url")?.toString()?.removeSurrounding("\"")?.let { "https://www.nytimes.com/$it" }
+                            val multimediaElement = articleJson["multimedia"]
+
+                            val smallImageUrl = if (multimediaElement is kotlinx.serialization.json.JsonArray) {
+                                multimediaElement.find {
+                                    it.jsonObject["subtype"]?.toString()?.removeSurrounding("\"") == "xlarge"
+                                }?.jsonObject?.get("url")?.toString()?.removeSurrounding("\"")?.let { url ->
+                                    if (url.startsWith("http")) url else "https://www.nytimes.com/$url"
+                                }
+                            } else if (multimediaElement is kotlinx.serialization.json.JsonObject) {
+                                multimediaElement["default"]?.jsonObject?.get("url")?.toString()?.removeSurrounding("\"")?.let { url ->
+                                    if (url.startsWith("http")) url else "https://www.nytimes.com/$url"
+                                }
+                            } else {
+                                null
+                            }
+
+                            val largeImageUrl = if (multimediaElement is kotlinx.serialization.json.JsonArray) {
+                                multimediaElement.find {
+                                    it.jsonObject["subtype"]?.toString()?.removeSurrounding("\"") == "xlarge"
+                                }?.jsonObject?.get("url")?.toString()?.removeSurrounding("\"")?.let { url ->
+                                    if (url.startsWith("http")) url else "https://www.nytimes.com/$url"
+                                }
+                            } else if (multimediaElement is kotlinx.serialization.json.JsonObject) {
+                                multimediaElement["default"]?.jsonObject?.get("url")?.toString()?.removeSurrounding("\"")?.let { url ->
+                                    if (url.startsWith("http")) url else "https://www.nytimes.com/$url"
+                                }
+                            } else {
+                                null
+                            }
+
                             val bylineOriginal = articleJson["byline"]?.jsonObject?.get("original")?.toString()?.removeSurrounding("\"")
 
                             val article = Article(
@@ -89,15 +115,17 @@ class MainActivity : AppCompatActivity() {
                                 leadParagraph = articleJson["lead_paragraph"]?.toString()?.removeSurrounding("\""),
                                 smallImageUrl = smallImageUrl,
                                 largeImageUrl = largeImageUrl
-                                //webUrl = articleJson["web_url"]?.toString()?.removeSurrounding("\"")
                             )
                             articles.add(article)
                         }
                         articleAdapter.notifyDataSetChanged()
+                    } else {
+                        Log.e(TAG, "Expected 'docs' to be a JsonArray but found ${docs?.javaClass?.simpleName}")
                     }
-
                 } catch (e: JSONException) {
-                    Log.e(TAG, "Exception: $e")
+                    Log.e(TAG, "JSONException: ${e.localizedMessage}")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Unexpected exception: ${e.localizedMessage}")
                 }
             }
 

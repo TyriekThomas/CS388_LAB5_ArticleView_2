@@ -23,7 +23,6 @@ class DetailActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_detail)
 
-        // Find the views for the screen
         mediaImageView = findViewById(R.id.mediaImage)
         titleTextView = findViewById(R.id.mediaTitle)
         bylineTextView = findViewById(R.id.mediaByline)
@@ -34,10 +33,8 @@ class DetailActivity : AppCompatActivity() {
         snippetTextView = findViewById(R.id.mediaSnippet)
 
 
-        // Get the extra from the Intent
         val article = intent.getSerializableExtra(ARTICLE_EXTRA) as Article
 
-        // Set the title, byline, and abstract information from the article
         titleTextView.text = article.headline
         bylineTextView.text = article.byline
         abstractTextView.text = article.leadParagraph
@@ -46,7 +43,6 @@ class DetailActivity : AppCompatActivity() {
         sectionNameTextView.text = "Section: " + article.sectionName
         snippetTextView.text = "Summary: " + article.snippet
 
-        // Load the media image
         Glide.with(this).load(article.largeImageUrl).into(mediaImageView)
     }
 }
